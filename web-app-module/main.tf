@@ -131,21 +131,25 @@ resource "aws_security_group" "ec2-sg" {
   }
 }
 resource "aws_instance" "webapp_instance" {
+
   ami                    = var.my_ami                     # Set the ID of the Amazon Machine Image to use
   instance_type          = "t2.micro"                     # Set the instance type
   key_name               = "ec2"                          # Set the key pair to use for SSH access
   vpc_security_group_ids = [aws_security_group.ec2-sg.id] # Set the security group to attach to the instance
   subnet_id              = local.public_subnet_ids[0]     # Set the ID of the subnet to launch the instance in
+  
   # Enable protection against accidental termination
   disable_api_termination = false
   # Set the root volume size and type
   root_block_device {
+
     volume_size           = 50    # Replace with your preferred root volume size (in GB)
     volume_type           = "gp2" # Replace with your preferred root volume type (e.g. "gp2", "io1", etc.)
     delete_on_termination = true
   }
   # Allocate a public IPv4 address
   # associate_public_ip_address = true
+
   tags = {
     Name = "webapp-instance-${timestamp()}" # Set the name tag for the instance
   }
