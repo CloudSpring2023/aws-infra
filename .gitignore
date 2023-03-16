@@ -5,6 +5,7 @@
 *.tfstate
 *.tfstate.*
 **/.terraform.lock.hcl/*
+**/.terraform.tfstate/*
 
 # Ignore the .terraform.lock.hcl file
 .terraform.lock.hcl
