@@ -62,7 +62,6 @@ variable "db_password" {
   type        = string
 }
 
-
 variable "db_public_access" {
   description = "DB public accessibility"
   type        = bool
@@ -71,4 +70,9 @@ variable "db_public_access" {
 variable "db_multiaz" {
   description = "DB multi AZ"
   type        = bool
+}
+
+variable "domain_name" {
+    description = "Hosted Zone"
+    type = string
 }
