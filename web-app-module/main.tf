@@ -334,9 +334,9 @@ data "aws_route53_zone" "hosted_zone"{
 }
 
 # Create Route53 
-recordresource "aws_route53_record" "hosted_zone_record"{
+resource "aws_route53_record" "hosted_zone_record"{
   zone_id = data.aws_route53_zone.hosted_zone.zone_id
-  name = "${var.sub_domain_name}.${var.domain_name}" 
+  name = var.domain_name
   type = "A"
   ttl  = "60"
   records = [aws_instance.webapp_instance.public_ip]
