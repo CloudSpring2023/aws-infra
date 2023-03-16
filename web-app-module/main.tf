@@ -36,14 +36,6 @@ resource "aws_route_table" "private_rt" {
   }
 }
 
-
-# resource "aws_route" "public_rt_internet_gateway" {
-#   route_table_id = aws_route_table.public_rt.id
-#   cidr_block = "0.0.0.0/0"
-#   gateway_id = aws_internet_gateway.webapp_igw.id
-# }
-
-
 resource "aws_subnet" "public_subnet" {
   count                   = local.no_of_subnets
   cidr_block              = cidrsubnet(aws_vpc.webapp_vpc.cidr_block, 8, count.index)
@@ -117,21 +109,6 @@ resource "aws_security_group" "app_sg" {
     cidr_blocks = ["0.0.0.0/0"] # Allow traffic from all IP addresses
   }
 
-
-  # egress {
-  #   # description = "Allow Postgres traffic fromy the application security group"
-  #   from_port   = 443
-  #   to_port     = 443
-  #   protocol    = "tcp"
-  #   cidr_blocks = ["0.0.0.0/0"]
-  # }
-  # egress {
-  #   # description = "Allow Postgres traffic fromy the application security group"
-  #   from_port   = 0
-  #   to_port     = 0
-  #   protocol    = "tcp"
-  #   cidr_blocks = ["0.0.0.0/0"]
-  # }
    egress {
     from_port   = 0
     to_port     = 0
@@ -161,46 +138,11 @@ resource "aws_security_group" "db_sg" {
     security_groups = [aws_security_group.app_sg.id]
   }
 
-  # egress {
-  #   from_port   = 0
-  #   to_port     = 0
-  #   protocol    = "-1"
-  #   cidr_blocks = ["0.0.0.0/0"]
-  # }
-  tags = {
+   tags = {
     "Name" = "database-sg-${timestamp()}"
   }
 }
 
-# # Add an inbound rule to the RDS security group to allow traffic from the EC2 security group
-# resource "aws_security_group_rule" "rds_ingress" {
-#   type                     = "ingress"
-#   from_port                = 3306
-#   to_port                  = 3306
-#   protocol                 = "tcp"
-#   security_group_id        = aws_security_group.db_sg.id
-#   source_security_group_id = aws_security_group.app_sg.id
-# }
-
-# # Add an outbound rule to the RDS security group to allow traffic from the EC2 security group
-# resource "aws_security_group_rule" "rds_egress" {
-#   type                     = "egress"
-#   from_port                = 3306
-#   to_port                  = 3306
-#   protocol                 = "tcp"
-#   security_group_id        = aws_security_group.db_sg.id
-#   source_security_group_id = aws_security_group.app_sg.id
-# }
-
-# Add an inbound rule to the EC2 security group to allow traffic to the RDS security group
-# resource "aws_security_group_rule" "ec2_ingress" {
-#   type                     = "ingress"
-#   from_port                = 3306
-#   to_port                  = 3306
-#   protocol                 = "tcp"
-#   security_group_id        = aws_security_group.app_sg.id
-#   source_security_group_id = aws_security_group.db_sg.id
-# }
 resource "aws_instance" "webapp_instance" {
   ami                    = var.my_ami                     # Set the ID of the Amazon Machine Image to use
   instance_type          = "t2.micro"                     # Set the instance type
@@ -294,8 +236,10 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "s3b_encryption" {
 
 resource "aws_s3_bucket_public_access_block" "s3_block" {
   bucket              = aws_s3_bucket.s3b.id
-  block_public_acls   = true
+  block_public_acls = true
   block_public_policy = true
+  ignore_public_acls = true
+  restrict_public_buckets = true
 }
 resource "aws_iam_policy" "policy" {
   name        = "WebAppS3"
@@ -336,82 +280,10 @@ resource "aws_iam_policy_attachment" "web-app-s3-attach" {
   policy_arn = aws_iam_policy.policy.arn
 }
 
-
-
 resource "aws_iam_instance_profile" "iam_profile" {
   name = "iam_profile"
   role = aws_iam_role.ec2-role.name
 }
-
-#s3 bucket
-# resource "aws_s3_bucket" "s3_bucket" {
-#   lifecycle_rule {
-#     id      = "StorageTransitionRule"
-#     enabled = true
-#     transition {
-#       days          = 30
-#       storage_class = "STANDARD_IA"
-#     }
-#   }
-#   server_side_encryption_configuration {
-#     rule {
-#       apply_server_side_encryption_by_default {
-#         sse_algorithm = "AES256"
-#       }
-#     }
-#   }
-
-#   tags = {
-#     "Name" = "s3_bucket-${timestamp()}"
-#   }
-# }
-
-#iam role for ec2
-# resource "aws_iam_role" "ec2_role" {
-#   description        = "Policy for EC2 instance"
-#   name               = "tf-ec2-role"
-#   assume_role_policy = <<EOF
-# {
-#   "Version": "2012-10-17", 
-#   "Statement": [
-#     {
-#       "Action": "sts:AssumeRole", 
-#       "Effect": "Allow", 
-#       "Principal": {
-#         "Service": "ec2.amazonaws.com"
-#       }
-#     }
-#   ]
-# }
-# EOF
-#   tags = {
-#     "Name" = "ec2-iam-role"
-#   }
-# }
-
-# #policy document
-# data "aws_iam_policy_document" "policy_document" {
-#   version = "2012-10-17"
-#   statement {
-#     actions = [
-#       "s3:PutObject",
-#       "s3:GetObject",
-#       "s3:DeleteObject",
-#       "s3:ListBucket"
-#     ]
-#     resources = ["arn:aws:s3:::${aws_s3_bucket.s3_bucket.arn}",
-#     "arn:aws:s3:::${aws_s3_bucket.s3_bucket.arn}/*"]
-#   }
-#   depends_on = [aws_s3_bucket.s3_bucket]
-# }
-
-# #iam policy for role
-# resource "aws_iam_role_policy" "s3_policy" {
-#   name       = "tf-s3-policy"
-#   role       = aws_iam_role.ec2_role.id
-#   policy     = data.aws_iam_policy_document.policy_document.json
-#   depends_on = [aws_s3_bucket.s3_bucket]
-# }
 
 resource "aws_db_subnet_group" "db_subnet_group" {
   description = "Private Subnet group for RDS"
@@ -456,8 +328,16 @@ resource "aws_db_instance" "rds_instance" {
   }
 }
 
+data "aws_route53_zone" "hosted_zone"{
+  name = var.domain_name
+  private_zone = false
+}
 
-# #iam instance profile for ec2
-# resource "aws_iam_instance_profile" "ec2_profile" {
-#   role = aws_iam_role.ec2_role.name
-# }
+# Create Route53 
+recordresource "aws_route53_record" "hosted_zone_record"{
+  zone_id = data.aws_route53_zone.hosted_zone.zone_id
+  name = "${var.sub_domain_name}.${var.domain_name}" 
+  type = "A"
+  ttl  = "60"
+  records = [aws_instance.webapp_instance.public_ip]
+  }
