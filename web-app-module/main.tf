@@ -115,12 +115,6 @@ resource "aws_security_group" "app_sg" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
-  egress {
-    from_port   = 3306
-    to_port     = 3306
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
 
   tags = {
     Name = "ec2-sg-${timestamp()}" # Set the name tag for the security group
@@ -340,4 +334,12 @@ resource "aws_route53_record" "hosted_zone_record"{
   type = "A"
   ttl  = "60"
   records = [aws_instance.webapp_instance.public_ip]
-  }
+}
+
+
+#CloudWatch Policy
+resource "aws_iam_policy_attachment" "web-app-atach-cloudwatch" {
+  name       = "attach-cloudwatch-server-policy-ec2"
+  roles      = [aws_iam_role.ec2-role.name]
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
