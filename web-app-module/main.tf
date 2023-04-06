@@ -1,3 +1,4 @@
+
 # Create a VPC
 resource "aws_vpc" "webapp_vpc" {
   cidr_block = var.cidr_name
@@ -108,7 +109,6 @@ resource "aws_security_group" "app_sg" {
     Name = "ec2-sg-${timestamp()}" # Set the name tag for the security group
   }
 }
-
 # Database security group
 resource "aws_security_group" "db_sg" {
   name        = "database"
@@ -199,11 +199,12 @@ resource "aws_launch_template" "lt" {
   block_device_mappings {
     device_name = "/dev/xvda"
     ebs {
-      volume_size           = 20
+      volume_size           = 30
       volume_type           = "gp2"
       delete_on_termination = true
     }
   }
+
   iam_instance_profile {
     name = aws_iam_instance_profile.iam_profile.name
   }
@@ -231,21 +232,63 @@ resource "aws_autoscaling_group" "asg" {
   ]
 }
 
-resource "aws_autoscaling_policy" "asg_cpu_scale_up_policy" {
-  name                   = "csye6225-asg-cpu_scale_up"
+#Autoscaling policies - Scale up
+resource "aws_autoscaling_policy" "scale_up_policy" {
+  name        = "autoscaling_up_policy"
+  policy_type = "SimpleScaling"
+  scaling_adjustment     = "1"
   autoscaling_group_name = aws_autoscaling_group.asg.name
   adjustment_type        = "ChangeInCapacity"
-  policy_type            = "TargetTrackingScaling"
-  # scaling_adjustment     = 1
-  # CPU Utilization is above 20%
-  target_tracking_configuration {
-    predefined_metric_specification {
-      predefined_metric_type = "ASGAverageCPUUtilization"
-    }
-    target_value = 5.0
-  }
+  cooldown = 60
 }
 
+#Autoscaling policies - Scale down
+resource "aws_autoscaling_policy" "scale_down_policy" {
+  name        = "autoscaling_down_policy"
+  policy_type = "SimpleScaling"
+  scaling_adjustment     = "-1"
+  autoscaling_group_name = aws_autoscaling_group.asg.name
+  adjustment_type        = "ChangeInCapacity"
+  cooldown = 60
+}
+
+#Alarm for Scale up
+resource "aws_cloudwatch_metric_alarm" "alarm_scale_up" {
+  alarm_name                = "alarm_scale_up"
+  comparison_operator       = "GreaterThanOrEqualToThreshold"
+  evaluation_periods        = 2
+  metric_name               = "CPUUtilization"
+  namespace                 = "AWS/EC2"
+  period                    = 120
+  statistic                 = "Average"
+  threshold                 = 5
+  alarm_description         = "This metric monitors ec2 cpu utilization"
+  # insufficient_data_actions = []
+  dimensions = {
+    "AutoScalingGroupName" = aws_autoscaling_group.asg.name
+  }
+  actions_enabled = true
+  alarm_actions = [aws_autoscaling_policy.scale_up_policy.arn]
+}
+
+#Alarm for  scale down
+resource "aws_cloudwatch_metric_alarm" "alarm_scale_down" {
+  alarm_name                = "alarm_scale_down"
+  comparison_operator       = "LessThanOrEqualToThreshold"
+  evaluation_periods        = 2
+  metric_name               = "CPUUtilization"
+  namespace                 = "AWS/EC2"
+  period                    = 120
+  statistic                 = "Average"
+  threshold                 = 3
+  alarm_description         = "This metric monitors ec2 cpu utilization"
+  # insufficient_data_actions = []
+  dimensions = {
+    "AutoScalingGroupName" = aws_autoscaling_group.asg.name
+  }
+  actions_enabled = true
+  alarm_actions = [aws_autoscaling_policy.scale_down_policy.arn]
+}
 
 
 resource "aws_lb" "lb" {
@@ -443,4 +486,3 @@ resource "aws_route53_record" "hosted_zone_record" {
   }
   # records = [aws_lb.lb.load_balancer_ip]
 }
-
